@@ -1,0 +1,33 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: ./deploy.env
+    depends_on:
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Points to the Docker internal service name at BUILD time for SSR rewrites
+        NEXT_INTERNAL_API_URL: http://backend:8000
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_INTERNAL_API_URL=http://backend:8000
+    depends_on:
+      - backend
+
+volumes:
+  redis_data:
