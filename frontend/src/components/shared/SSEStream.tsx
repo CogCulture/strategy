@@ -23,42 +23,29 @@ export function useSSE({ sessionId, onEvent, onError, enabled = true }: UseSSEOp
   useEffect(() => {
     if (!enabled || !sessionId) return;
 
-    let es: EventSource;
-    let reconnectTimer: ReturnType<typeof setTimeout>;
+    const es = createSSEConnection(sessionId);
+    eventSourceRef.current = es;
 
-    const connect = () => {
+    es.onmessage = (event) => {
       if (!mountedRef.current) return;
+      try {
+        const data = JSON.parse(event.data) as SSEEvent;
+        onEvent(data);
 
-      es = createSSEConnection(sessionId);
-      eventSourceRef.current = es;
-
-      es.onmessage = (event) => {
-        if (!mountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data) as SSEEvent;
-          onEvent(data);
-
-          // Close only when pipeline is definitively done
-          if (data.event === "pipeline_complete" || data.event === "error") {
-            es.close();
-            eventSourceRef.current = null;
-          }
-        } catch (err) {
-          console.error("Failed to parse SSE event:", err);
+        if (data.event === "pipeline_complete" || data.event === "error") {
+          es.close();
+          eventSourceRef.current = null;
         }
-      };
-
-      es.onerror = (event) => {
-        // EventSource auto-reconnects on network errors.
-        // Only call onError for visibility; don't close manually.
-        onError?.(event);
-      };
+      } catch (err) {
+        console.error("Failed to parse SSE event:", err);
+      }
     };
 
-    connect();
+    es.onerror = (event) => {
+      onError?.(event);
+    };
 
     return () => {
-      clearTimeout(reconnectTimer);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
