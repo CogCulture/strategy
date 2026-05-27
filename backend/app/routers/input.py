@@ -2,11 +2,26 @@ from fastapi import APIRouter, HTTPException
 from app.models.input_models import BrandInput
 from app.models.output_models import SessionCreateResponse
 from app.models.session_models import SessionState, SessionStatus, KnowledgeBase
-from app.services.knowledge_base import save_session
+from app.services.knowledge_base import save_session, load_session
 from app.services.website_extractor import extract_and_summarise
 from app.utils.session_utils import generate_session_id
 
 router = APIRouter()
+
+@router.get("/session/{session_id}/status")
+async def get_session_status(session_id: str):
+    """Lightweight status endpoint polled by frontend every 4 s instead of SSE."""
+    session = await load_session(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    return {
+        "session_id": session_id,
+        "status": session.status.value,
+        "error": session.error,
+        "stream_events": session.stream_events,
+        "review_stage": session.review_stage,
+    }
+
 
 @router.post("/session/create", response_model=SessionCreateResponse)
 async def create_session(body: BrandInput):

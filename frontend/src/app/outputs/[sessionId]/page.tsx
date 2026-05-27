@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Sparkles, Download, Play, Home, RotateCcw, Plus, MessageSquare } from "lucide-react";
+import { Sparkles, Download, Play, Home, RotateCcw, Plus } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -12,9 +12,7 @@ import { OutputSelector } from "@/components/outputs/OutputSelector";
 import { ResearchChat } from "@/components/outputs/ResearchChat";
 import { PipelineProgress } from "@/components/outputs/PipelineProgress";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { useSSE } from "@/components/shared/SSEStream";
-import { runPipeline, getExportUrl } from "@/lib/api";
-import type { SSEEvent } from "@/lib/types";
+import { runPipeline, getExportUrl, pollPipelineStatus } from "@/lib/api";
 
 type ModuleStatus = "pending" | "running" | "complete" | "error" | "review";
 
@@ -28,53 +26,79 @@ export default function OutputsPage() {
   const [pipelineComplete, setPipelineComplete] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [moduleStatuses, setModuleStatuses] = useState<Record<string, ModuleStatus>>({});
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const handleSSEEvent = useCallback(
-    (event: SSEEvent) => {
-      if (event.event === "connected") {
-        // Initial heartbeat — no action needed
-        return;
-      } else if (event.event === "pipeline_complete") {
-        setPipelineComplete(true);
-        // Mark remaining running modules as complete
-        setModuleStatuses((prev) => {
-          const updated = { ...prev };
-          for (const key of Object.keys(updated)) {
-            if (updated[key] === "running") updated[key] = "complete";
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startedAt = useRef<number>(0);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (elapsedRef.current) clearInterval(elapsedRef.current);
+    };
+  }, []);
+
+  const stopPolling = () => {
+    if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+    if (elapsedRef.current) { clearInterval(elapsedRef.current); elapsedRef.current = null; }
+  };
+
+  const startPolling = (modules: string[]) => {
+    startedAt.current = Date.now();
+
+    // Elapsed timer (updates every second for UI)
+    elapsedRef.current = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt.current) / 1000));
+    }, 1000);
+
+    // Status poll every 4 seconds
+    pollingRef.current = setInterval(async () => {
+      try {
+        const result = await pollPipelineStatus(sessionId);
+
+        if (result.status === "completed") {
+          stopPolling();
+          // Mark all running modules as complete
+          const done: Record<string, ModuleStatus> = {};
+          modules.forEach((m) => { done[m] = "complete"; });
+          // Apply any specific module events from stream_events
+          (result.stream_events || []).forEach((ev: string) => {
+            if (ev.endsWith("_complete")) {
+              const mod = ev.replace("_complete", "");
+              if (done[mod] !== undefined) done[mod] = "complete";
+            } else if (ev.endsWith("_failed")) {
+              const mod = ev.replace("_failed", "");
+              if (done[mod] !== undefined) done[mod] = "error";
+            }
+          });
+          setModuleStatuses(done);
+          setPipelineComplete(true);
+          toast.success("Pipeline complete! Your report is ready.");
+
+        } else if (result.status === "failed") {
+          stopPolling();
+          const errored: Record<string, ModuleStatus> = {};
+          modules.forEach((m) => { errored[m] = "error"; });
+          setModuleStatuses(errored);
+          toast.error("Pipeline failed: " + (result.error || "Unknown error"));
+
+        } else if (result.status === "awaiting_review") {
+          stopPolling();
+          if (result.review_stage === "buckets") {
+            router.push(`/review/${sessionId}?stage=buckets`);
+          } else if (result.review_stage === "tone") {
+            router.push(`/review/${sessionId}?stage=tone`);
           }
-          return updated;
-        });
-        toast.success("Pipeline complete! Your report is ready.");
-      } else if (event.event === "error") {
-        toast.error("Pipeline error: " + (event.message || "Unknown error"));
-      } else if (event.event === "awaiting_bucket_review") {
-        setModuleStatuses((prev) => ({ ...prev, content_strategy: "review" }));
-        router.push(`/review/${sessionId}?stage=buckets`);
-      } else if (event.event === "awaiting_tone_review") {
-        setModuleStatuses((prev) => ({ ...prev, content_strategy: "review" }));
-        router.push(`/review/${sessionId}?stage=tone`);
-      } else if (event.event.endsWith("_running")) {
-        const moduleName = event.event.replace("_running", "");
-        setModuleStatuses((prev) => ({ ...prev, [moduleName]: "running" }));
-      } else if (event.event.endsWith("_complete")) {
-        const moduleName = event.event.replace("_complete", "");
-        setModuleStatuses((prev) => ({ ...prev, [moduleName]: "complete" }));
-      } else if (event.event.endsWith("_failed")) {
-        const moduleName = event.event.replace("_failed", "");
-        setModuleStatuses((prev) => ({ ...prev, [moduleName]: "error" }));
-      } else if (event.event.endsWith("_skipped")) {
-        const moduleName = event.event.replace("_skipped", "");
-        setModuleStatuses((prev) => ({ ...prev, [moduleName]: "complete" }));
+        }
+        // status === "running" → keep polling
+      } catch (err) {
+        console.error("Poll error:", err);
+        // Don't stop on transient errors — keep trying
       }
-    },
-    [router, sessionId]
-  );
-
-  useSSE({
-    sessionId,
-    onEvent: handleSSEEvent,
-    enabled: pipelineStarted && !pipelineComplete,
-  });
+    }, 4000);
+  };
 
   const handleStartPipeline = async () => {
     if (selectedModules.length === 0) {
@@ -84,21 +108,28 @@ export default function OutputsPage() {
 
     setIsStarting(true);
     try {
-      // Initialize all selected modules as "running"
       const initialStatuses: Record<string, ModuleStatus> = {};
-      selectedModules.forEach((m) => {
-        initialStatuses[m] = "running";
-      });
+      selectedModules.forEach((m) => { initialStatuses[m] = "running"; });
       setModuleStatuses(initialStatuses);
+      setElapsedSeconds(0);
 
       await runPipeline(sessionId, selectedModules);
       setPipelineStarted(true);
       toast.success("Pipeline started!");
+      startPolling(selectedModules);
     } catch (err) {
       toast.error("Failed to start pipeline: " + (err instanceof Error ? err.message : "Unknown error"));
+      // Reset statuses on failure
+      setModuleStatuses({});
     } finally {
       setIsStarting(false);
     }
+  };
+
+  const formatElapsed = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
   };
 
   return (
@@ -120,7 +151,7 @@ export default function OutputsPage() {
           {pipelineComplete
             ? "Chat with your research assistant to refine and modify your report"
             : pipelineStarted
-              ? "Watch your strategy come alive in real-time"
+              ? `Watch your strategy come alive in real-time — ${formatElapsed(elapsedSeconds)} elapsed`
               : "Choose which strategic outputs to generate"}
         </p>
       </motion.div>
@@ -208,9 +239,11 @@ export default function OutputsPage() {
                   <Button
                     variant="outline"
                     onClick={() => {
+                      stopPolling();
                       setPipelineStarted(false);
                       setPipelineComplete(false);
                       setModuleStatuses({});
+                      setElapsedSeconds(0);
                     }}
                     className="gap-2"
                   >

@@ -54,6 +54,18 @@ export async function runPipeline(sessionId: string, modules: string[]) {
   return res.json();
 }
 
+/** Poll session status — replaces SSE to avoid proxy buffering issues */
+export async function pollPipelineStatus(sessionId: string): Promise<{
+  status: string;
+  error?: string;
+  stream_events?: string[];
+  review_stage?: string;
+}> {
+  const res = await fetch(`${API_BASE}/api/session/${sessionId}/status`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export function createSSEConnection(sessionId: string): EventSource {
   return new EventSource(`${getSSEBase()}/api/pipeline/stream/${sessionId}`);
 }
