@@ -28,6 +28,7 @@ class SessionState(BaseModel):
     review_stage: Optional[str] = None
     review_data: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+    stream_events: List[str] = []  # node completion events for SSE polling
 
     # Research memory
     research_map: Optional[str] = None

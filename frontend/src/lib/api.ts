@@ -1,8 +1,15 @@
 import type { ChatMessage } from "./types";
 
-// Use relative URLs so calls go through Next.js rewrites → no CORS.
-// Set NEXT_PUBLIC_API_URL only if you want to bypass the proxy (e.g. dev without Docker).
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+// Regular API calls go through the Next.js rewrite proxy (same-origin, no CORS).
+const API_BASE = "";
+
+// SSE (EventSource) must connect DIRECTLY to the backend — Next.js may buffer SSE responses.
+// In Docker: NEXT_PUBLIC_BACKEND_URL is not set at build time, so we derive it at runtime.
+function getSSEBase(): string {
+  if (typeof window === "undefined") return "http://backend:8000";
+  // Use same hostname but port 8000 (the backend)
+  return `${window.location.protocol}//${window.location.hostname}:8000`;
+}
 
 export async function createSession(data: Record<string, unknown>) {
   const res = await fetch(`${API_BASE}/api/session/create`, {
@@ -48,7 +55,7 @@ export async function runPipeline(sessionId: string, modules: string[]) {
 }
 
 export function createSSEConnection(sessionId: string): EventSource {
-  return new EventSource(`${API_BASE}/api/pipeline/stream/${sessionId}`);
+  return new EventSource(`${getSSEBase()}/api/pipeline/stream/${sessionId}`);
 }
 
 export async function submitReview(data: {

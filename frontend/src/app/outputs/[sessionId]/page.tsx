@@ -31,7 +31,10 @@ export default function OutputsPage() {
 
   const handleSSEEvent = useCallback(
     (event: SSEEvent) => {
-      if (event.event === "pipeline_complete") {
+      if (event.event === "connected") {
+        // Initial heartbeat — no action needed
+        return;
+      } else if (event.event === "pipeline_complete") {
         setPipelineComplete(true);
         // Mark remaining running modules as complete
         setModuleStatuses((prev) => {
@@ -50,8 +53,17 @@ export default function OutputsPage() {
       } else if (event.event === "awaiting_tone_review") {
         setModuleStatuses((prev) => ({ ...prev, content_strategy: "review" }));
         router.push(`/review/${sessionId}?stage=tone`);
+      } else if (event.event.endsWith("_running")) {
+        const moduleName = event.event.replace("_running", "");
+        setModuleStatuses((prev) => ({ ...prev, [moduleName]: "running" }));
       } else if (event.event.endsWith("_complete")) {
         const moduleName = event.event.replace("_complete", "");
+        setModuleStatuses((prev) => ({ ...prev, [moduleName]: "complete" }));
+      } else if (event.event.endsWith("_failed")) {
+        const moduleName = event.event.replace("_failed", "");
+        setModuleStatuses((prev) => ({ ...prev, [moduleName]: "error" }));
+      } else if (event.event.endsWith("_skipped")) {
+        const moduleName = event.event.replace("_skipped", "");
         setModuleStatuses((prev) => ({ ...prev, [moduleName]: "complete" }));
       }
     },
