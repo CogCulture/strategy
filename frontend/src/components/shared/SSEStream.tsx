@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { createSSEConnection } from "@/lib/api";
 import type { SSEEvent } from "@/lib/types";
 
@@ -13,42 +13,66 @@ interface UseSSEOptions {
 
 export function useSSE({ sessionId, onEvent, onError, enabled = true }: UseSSEOptions) {
   const eventSourceRef = useRef<EventSource | null>(null);
+  const mountedRef = useRef(true);
 
-  const disconnect = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
   }, []);
 
   useEffect(() => {
     if (!enabled || !sessionId) return;
 
-    const es = createSSEConnection(sessionId);
-    eventSourceRef.current = es;
+    let es: EventSource;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
 
-    es.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data) as SSEEvent;
-        onEvent(data);
+    const connect = () => {
+      if (!mountedRef.current) return;
 
-        if (data.event === "pipeline_complete" || data.event === "error") {
-          disconnect();
+      es = createSSEConnection(sessionId);
+      eventSourceRef.current = es;
+
+      es.onmessage = (event) => {
+        if (!mountedRef.current) return;
+        try {
+          const data = JSON.parse(event.data) as SSEEvent;
+          onEvent(data);
+
+          // Close only when pipeline is definitively done
+          if (data.event === "pipeline_complete" || data.event === "error") {
+            es.close();
+            eventSourceRef.current = null;
+          }
+        } catch (err) {
+          console.error("Failed to parse SSE event:", err);
         }
-      } catch (err) {
-        console.error("Failed to parse SSE event:", err);
-      }
+      };
+
+      es.onerror = (event) => {
+        // EventSource auto-reconnects on network errors.
+        // Only call onError for visibility; don't close manually.
+        onError?.(event);
+      };
     };
 
-    es.onerror = (event) => {
-      onError?.(event);
-      disconnect();
-    };
+    connect();
 
     return () => {
-      disconnect();
+      clearTimeout(reconnectTimer);
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
     };
-  }, [sessionId, enabled, onEvent, onError, disconnect]);
+  }, [sessionId, enabled, onEvent, onError]);
 
-  return { disconnect };
+  return {
+    disconnect: () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    },
+  };
 }
+
