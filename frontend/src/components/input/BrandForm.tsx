@@ -343,6 +343,12 @@ export function BrandForm() {
                       placeholder={geoCountry === "India" ? "Custom geography is disabled for India" : "Enter specific geography..."}
                       value={geoCustom}
                       onChange={(e) => setGeoCustom(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
                       disabled={geoCountry === "India"}
                       className="border-input hover:border-primary/50 focus:border-primary transition-colors bg-background"
                     />
