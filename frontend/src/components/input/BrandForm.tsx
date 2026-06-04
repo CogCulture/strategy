@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StepIndicator } from "@/components/shared/StepIndicator";
 import { CategoryDropdown } from "@/components/input/CategoryDropdown";
 import { DocumentUploader } from "@/components/input/DocumentUploader";
@@ -16,6 +17,11 @@ import { GuardrailsInput } from "@/components/input/GuardrailsInput";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { createSession, uploadDocument } from "@/lib/api";
 import type { BrandInput } from "@/lib/types";
+import { 
+  B2B_COMPANY_SIZES, B2B_COMPANY_CATEGORIES, 
+  AUDIENCE_AGES, AUDIENCE_GENDERS, AUDIENCE_SECS, 
+  INDIA_REGIONS, INDIA_STATES 
+} from "@/lib/constants";
 
 const STEPS = [
   { number: 1, title: "Brand Basics" },
@@ -62,11 +68,42 @@ export function BrandForm() {
   const [files, setFiles] = useState<File[]>([]);
   const [socialFiles, setSocialFiles] = useState<File[]>([]);
 
+  // Complex Audience & Geo state
+  const [b2bSize, setB2bSize] = useState("");
+  const [b2bCategory, setB2bCategory] = useState("");
+  const [audAge, setAudAge] = useState("");
+  const [audGender, setAudGender] = useState("");
+  const [audSEC, setAudSEC] = useState("");
+  const [geoCountry, setGeoCountry] = useState("");
+  const [geoRegion, setGeoRegion] = useState("");
+  const [geoState, setGeoState] = useState("");
+  const [geoCustom, setGeoCustom] = useState("");
+
+  const isB2B = formData.category.toLowerCase().includes("b2b");
+
   const updateField = (field: keyof BrandInput, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const nextStep = () => {
+    if (step === 2) {
+      // Compile target audience
+      if (isB2B) {
+        updateField("target_audience", `Company Size: ${b2bSize || "Not specified"}\nCompany Category: ${b2bCategory || "Not specified"}`);
+      } else {
+        updateField("target_audience", `Age: ${audAge || "Not specified"}\nGender: ${audGender || "Not specified"}\nSEC: ${audSEC || "Not specified"}`);
+      }
+
+      // Compile geography
+      if (geoCountry === "India") {
+        updateField("geography", `Country: India\nRegion: ${geoRegion || "Not specified"}\nState: ${geoState || "Not specified"}`);
+      } else if (geoCountry === "Foreign") {
+        updateField("geography", `Country: Foreign\nDetails: ${geoCustom || "Not specified"}`);
+      } else {
+        updateField("geography", geoCustom || "Not specified");
+      }
+    }
+
     if (step < 4) {
       setDirection(1);
       setStep(step + 1);
@@ -85,7 +122,7 @@ export function BrandForm() {
       case 1:
         return !!(formData.brand_name && formData.website_url && formData.category && formData.sub_category);
       case 2:
-        return !!(formData.target_audience && formData.product_service && formData.geography);
+        return !!(formData.product_service && (geoCountry || geoCustom));
       case 3:
         return true; // Optional step
       case 4:
@@ -191,16 +228,64 @@ export function BrandForm() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="target_audience">Target Audience <span className="text-destructive">*</span></Label>
-                  <Textarea
-                    id="target_audience"
-                    value={formData.target_audience}
-                    onChange={(e) => updateField("target_audience", e.target.value)}
-                    placeholder="Describe your ideal customer segment..."
-                    className="min-h-[80px] border-input hover:border-primary/50 focus:border-primary transition-colors bg-background resize-none"
-                  />
-                </div>
+                {isB2B ? (
+                  <div className="space-y-4">
+                    <Label className="text-lg font-semibold">Target Audience</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Company Size</Label>
+                        <Select value={b2bSize} onValueChange={setB2bSize}>
+                          <SelectTrigger className="bg-background"><SelectValue placeholder="Select size" /></SelectTrigger>
+                          <SelectContent>
+                            {B2B_COMPANY_SIZES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Company Category</Label>
+                        <Select value={b2bCategory} onValueChange={setB2bCategory}>
+                          <SelectTrigger className="bg-background"><SelectValue placeholder="Select category" /></SelectTrigger>
+                          <SelectContent>
+                            {B2B_COMPANY_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <Label className="text-lg font-semibold">Target Audience</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Age</Label>
+                        <Select value={audAge} onValueChange={setAudAge}>
+                          <SelectTrigger className="bg-background"><SelectValue placeholder="Select age" /></SelectTrigger>
+                          <SelectContent>
+                            {AUDIENCE_AGES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Gender</Label>
+                        <Select value={audGender} onValueChange={setAudGender}>
+                          <SelectTrigger className="bg-background"><SelectValue placeholder="Select gender" /></SelectTrigger>
+                          <SelectContent>
+                            {AUDIENCE_GENDERS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Socio-Economic</Label>
+                        <Select value={audSEC} onValueChange={setAudSEC}>
+                          <SelectTrigger className="bg-background"><SelectValue placeholder="Select SEC" /></SelectTrigger>
+                          <SelectContent>
+                            {AUDIENCE_SECS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="persona">Persona</Label>
@@ -235,15 +320,64 @@ export function BrandForm() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="geography">Geography <span className="text-destructive">*</span></Label>
-                  <Input
-                    id="geography"
-                    value={formData.geography}
-                    onChange={(e) => updateField("geography", e.target.value)}
-                    placeholder="e.g. India, North America, Global"
-                    className="border-input hover:border-primary/50 focus:border-primary transition-colors bg-background"
-                  />
+                <div className="space-y-4">
+                  <Label className="text-lg font-semibold">Geography <span className="text-destructive">*</span></Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Country</Label>
+                      <Select value={geoCountry} onValueChange={(val) => {
+                        setGeoCountry(val);
+                        setGeoRegion("");
+                        setGeoState("");
+                        if (val === "India") setGeoCustom("");
+                      }}>
+                        <SelectTrigger className="bg-background"><SelectValue placeholder="Select country" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="India">India</SelectItem>
+                          <SelectItem value="Foreign">Foreign</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {geoCountry === "India" && (
+                      <>
+                        <div className="space-y-2">
+                          <Label>Region</Label>
+                          <Select value={geoRegion} onValueChange={(val) => {
+                            setGeoRegion(val);
+                            setGeoState("");
+                          }}>
+                            <SelectTrigger className="bg-background"><SelectValue placeholder="Select region" /></SelectTrigger>
+                            <SelectContent>
+                              {INDIA_REGIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>State</Label>
+                          <Select value={geoState} onValueChange={setGeoState} disabled={!geoRegion || geoRegion === "Pan India"}>
+                            <SelectTrigger className="bg-background"><SelectValue placeholder="Select state" /></SelectTrigger>
+                            <SelectContent>
+                              {(geoRegion && INDIA_STATES[geoRegion] ? INDIA_STATES[geoRegion] : []).map(s => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Custom Geography</Label>
+                    <Input
+                      placeholder={geoCountry === "India" ? "Custom geography is disabled for India" : "Enter specific geography..."}
+                      value={geoCustom}
+                      onChange={(e) => setGeoCustom(e.target.value)}
+                      disabled={geoCountry === "India"}
+                      className="border-input hover:border-primary/50 focus:border-primary transition-colors bg-background"
+                    />
+                  </div>
                 </div>
               </div>
             )}
