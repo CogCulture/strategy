@@ -23,6 +23,8 @@ import {
   INDIA_REGIONS, INDIA_STATES 
 } from "@/lib/constants";
 
+const ALL_INDIA_STATES = Array.from(new Set(Object.values(INDIA_STATES).flat())).sort();
+
 const STEPS = [
   { number: 1, title: "Brand Basics" },
   { number: 2, title: "Audience & Strategy" },
@@ -287,39 +289,6 @@ export function BrandForm() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="persona">Persona</Label>
-                  <Textarea
-                    id="persona"
-                    value={formData.persona}
-                    onChange={(e) => updateField("persona", e.target.value)}
-                    placeholder="e.g. Urban professional, 25–35, tech-savvy, sustainability-conscious"
-                    className="min-h-[80px] border-input hover:border-primary/50 focus:border-primary transition-colors bg-background resize-none"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="campaign_positioning">Campaign / Positioning</Label>
-                  <Input
-                    id="campaign_positioning"
-                    value={formData.campaign_positioning}
-                    onChange={(e) => updateField("campaign_positioning", e.target.value)}
-                    placeholder="Current or desired brand positioning"
-                    className="border-input hover:border-primary/50 focus:border-primary transition-colors bg-background"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="product_service">Product / Service <span className="text-destructive">*</span></Label>
-                  <Textarea
-                    id="product_service"
-                    value={formData.product_service}
-                    onChange={(e) => updateField("product_service", e.target.value)}
-                    placeholder="Describe your core product or service offering..."
-                    className="min-h-[80px] border-input hover:border-primary/50 focus:border-primary transition-colors bg-background resize-none"
-                  />
-                </div>
-
                 <div className="space-y-4">
                   <Label className="text-lg font-semibold">Geography <span className="text-destructive">*</span></Label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -355,10 +324,10 @@ export function BrandForm() {
                         </div>
                         <div className="space-y-2">
                           <Label>State</Label>
-                          <Select value={geoState} onValueChange={setGeoState} disabled={!geoRegion || geoRegion === "Pan India"}>
+                          <Select value={geoState} onValueChange={setGeoState}>
                             <SelectTrigger className="bg-background"><SelectValue placeholder="Select state" /></SelectTrigger>
                             <SelectContent>
-                              {(geoRegion && INDIA_STATES[geoRegion] ? INDIA_STATES[geoRegion] : []).map(s => (
+                              {(geoRegion ? (INDIA_STATES[geoRegion] || []) : ALL_INDIA_STATES).map(s => (
                                 <SelectItem key={s} value={s}>{s}</SelectItem>
                               ))}
                             </SelectContent>
@@ -378,6 +347,39 @@ export function BrandForm() {
                       className="border-input hover:border-primary/50 focus:border-primary transition-colors bg-background"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="persona">Persona</Label>
+                  <Textarea
+                    id="persona"
+                    value={formData.persona}
+                    onChange={(e) => updateField("persona", e.target.value)}
+                    placeholder="e.g. Urban professional, 25–35, tech-savvy, sustainability-conscious"
+                    className="min-h-[80px] border-input hover:border-primary/50 focus:border-primary transition-colors bg-background resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="campaign_positioning">Campaign / Positioning</Label>
+                  <Input
+                    id="campaign_positioning"
+                    value={formData.campaign_positioning}
+                    onChange={(e) => updateField("campaign_positioning", e.target.value)}
+                    placeholder="Current or desired brand positioning"
+                    className="border-input hover:border-primary/50 focus:border-primary transition-colors bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="product_service">Product / Service <span className="text-destructive">*</span></Label>
+                  <Textarea
+                    id="product_service"
+                    value={formData.product_service}
+                    onChange={(e) => updateField("product_service", e.target.value)}
+                    placeholder="Describe your core product or service offering..."
+                    className="min-h-[80px] border-input hover:border-primary/50 focus:border-primary transition-colors bg-background resize-none"
+                  />
                 </div>
               </div>
             )}
