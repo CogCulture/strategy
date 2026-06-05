@@ -20,6 +20,7 @@ export interface BrandInput {
   geography: string;
   context?: string;
   guardrails?: string;
+  competitors?: string;
 }
 
 export interface SessionState {
@@ -47,4 +48,10 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   hasModification?: boolean;
+}
+
+export interface Cohort {
+  name: string;
+  description: string;
+  search_prompts: string[];
 }

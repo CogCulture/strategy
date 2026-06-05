@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 // In Docker: use the service name. Locally: use localhost.
-const INTERNAL_API_URL = process.env.NEXT_INTERNAL_API_URL || "http://backend:8000";
+const isDev = process.env.NODE_ENV === "development";
+const INTERNAL_API_URL = process.env.NEXT_INTERNAL_API_URL || (isDev ? "http://127.0.0.1:8000" : "http://backend:8000");
 
 const nextConfig: NextConfig = {
   output: "standalone",

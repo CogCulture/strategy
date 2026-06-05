@@ -33,11 +33,10 @@ async def chat(session_id: str, body: ChatMessage):
     if not session:
         raise HTTPException(404, detail="Session not found")
 
-    if not session.outputs:
-        raise HTTPException(400, detail="No research outputs available for chat")
+    # Remove the strict outputs check
 
-    # Initialize research memory on first chat
-    if session.research_map is None:
+    # Initialize research memory on first chat ONLY IF outputs exist
+    if session.outputs and session.research_map is None:
         try:
             research_map, chunk_index, chunks = await prepare_research_memory(
                 session.outputs
@@ -50,8 +49,10 @@ async def chat(session_id: str, body: ChatMessage):
             logger.error(f"Failed to prepare research memory: {e}")
             raise HTTPException(500, detail="Failed to initialize chat context")
 
-    # Route to relevant chunks
-    relevant_chunk_ids = await route_to_chunks(body.message, session.chunk_index)
+    # Route to relevant chunks ONLY IF chunk_index exists
+    relevant_chunk_ids = []
+    if session.chunk_index:
+        relevant_chunk_ids = await route_to_chunks(body.message, session.chunk_index)
 
     # Build the full prompt
     prompt_messages = build_chat_prompt(session, body.message, relevant_chunk_ids)
@@ -70,9 +71,10 @@ async def chat(session_id: str, body: ChatMessage):
         try:
             async with client.messages.stream(
                 model=SONNET_MODEL,
-                max_tokens=4096,
+                max_tokens=16384,
                 system=system_content,
                 messages=conversation_messages,
+                tools=[{"type": "web_search_20250305", "name": "web_search", "allowed_callers": ["direct"]}],
             ) as stream:
                 async for text in stream.text_stream:
                     full_response += text

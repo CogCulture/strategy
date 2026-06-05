@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Sparkles, CheckCircle2, ArrowRight, RotateCcw, Layers, Palette, MessageCircle } from "lucide-react";
+import { Sparkles, CheckCircle2, ArrowRight, RotateCcw, Layers, Palette, MessageCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -94,7 +94,14 @@ function ReviewPageContent() {
   ];
 
   return (
-    <main className="min-h-screen py-12 px-6">
+    <main className="min-h-screen py-12 px-6 relative">
+      {/* Back Button */}
+      <div className="absolute top-6 left-6">
+        <Button variant="ghost" onClick={() => router.back()} className="gap-2 hover:bg-muted text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </Button>
+      </div>
+
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}

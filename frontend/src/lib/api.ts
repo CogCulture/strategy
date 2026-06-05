@@ -21,6 +21,16 @@ export async function createSession(data: Record<string, unknown>) {
   return res.json();
 }
 
+export async function generateCohorts(data: Partial<Record<string, unknown>>) {
+  const res = await fetch(`${API_BASE}/api/personas/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export async function uploadDocument(sessionId: string, file: File, docType: string = "general"): Promise<any> {
   const formData = new FormData();
   formData.append("file", file);
@@ -62,6 +72,12 @@ export async function pollPipelineStatus(sessionId: string): Promise<{
   review_stage?: string;
 }> {
   const res = await fetch(`${API_BASE}/api/session/${sessionId}/status`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getSessionData(sessionId: string): Promise<any> {
+  const res = await fetch(`${API_BASE}/api/session/${sessionId}`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

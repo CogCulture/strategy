@@ -22,6 +22,13 @@ async def get_session_status(session_id: str):
         "review_stage": session.review_stage,
     }
 
+@router.get("/session/{session_id}")
+async def get_session_data(session_id: str):
+    session = await load_session(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    return session.model_dump()
+
 
 @router.post("/session/create", response_model=SessionCreateResponse)
 async def create_session(body: BrandInput):

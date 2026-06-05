@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import input, documents, outputs, pipeline, review, export, chat
+from app.routers import input, documents, outputs, pipeline, review, export, chat, personas
 
 app = FastAPI(title="Brand Research API", version="1.0.0")
 
@@ -31,6 +31,7 @@ app.include_router(pipeline.router, prefix="/api")
 app.include_router(review.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
+app.include_router(personas.router)
 
 @app.get("/health")
 async def health():

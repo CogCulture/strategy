@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SleekDropdown } from "@/components/shared/SleekDropdown";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
@@ -89,22 +83,12 @@ export function CategoryDropdown({
             </Button>
           </div>
         ) : (
-          <Select value={category} onValueChange={handleCatChange}>
-            <SelectTrigger id="category" className="bg-background border-input hover:border-primary/50 transition-colors">
-              <SelectValue placeholder="Select category" />
-            </SelectTrigger>
-            <SelectContent className="bg-background border-border shadow-md">
-              {Object.keys(CATEGORIES).filter(cat => cat !== "Custom").map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-              {isCustomOptionCat && (
-                <SelectItem key={category} value={category}>{category}</SelectItem>
-              )}
-              <SelectItem value="Custom">Custom...</SelectItem>
-            </SelectContent>
-          </Select>
+          <SleekDropdown 
+            value={category} 
+            onValueChange={handleCatChange}
+            options={[...Object.keys(CATEGORIES).filter(cat => cat !== "Custom"), ...(isCustomOptionCat ? [category] : []), "Custom"]}
+            placeholder="Select category"
+          />
         )}
       </div>
 
@@ -133,22 +117,13 @@ export function CategoryDropdown({
             </Button>
           </div>
         ) : (
-          <Select value={subCategory} onValueChange={handleSubChange} disabled={!category}>
-            <SelectTrigger id="sub_category" className="bg-background border-input hover:border-primary/50 transition-colors">
-              <SelectValue placeholder={category ? "Select sub-category" : "Select category first"} />
-            </SelectTrigger>
-            <SelectContent className="bg-background border-border shadow-md">
-              {predefinedSubs.map((sub) => (
-                <SelectItem key={sub} value={sub}>
-                  {sub}
-                </SelectItem>
-              ))}
-              {isCustomOptionSub && (
-                <SelectItem key={subCategory} value={subCategory}>{subCategory}</SelectItem>
-              )}
-              <SelectItem value="Custom">Custom...</SelectItem>
-            </SelectContent>
-          </Select>
+          <SleekDropdown 
+            value={subCategory} 
+            onValueChange={handleSubChange}
+            disabled={!category}
+            options={[...predefinedSubs, ...(isCustomOptionSub ? [subCategory] : []), "Custom"]}
+            placeholder={category ? "Select sub-category" : "Select category first"}
+          />
         )}
       </div>
     </div>

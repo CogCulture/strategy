@@ -24,6 +24,7 @@ class BrandInput(BaseModel):
     geography: str
     context: Optional[str] = None
     guardrails: Optional[str] = None
+    competitors: Optional[str] = None
 
 class OutputSelectionInput(BaseModel):
     session_id: str

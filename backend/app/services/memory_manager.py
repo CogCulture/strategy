@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
-HAIKU_MODEL = "claude-haiku-4-5-20251001"
+SONNET_MODEL = "claude-sonnet-4-20250514"
 
 # Prefix map for generating chunk IDs from section keys
 SECTION_PREFIXES = {
@@ -71,8 +71,8 @@ async def prepare_research_memory(outputs: dict) -> tuple[str, str, dict]:
 
     try:
         response = await client.messages.create(
-            model=HAIKU_MODEL,
-            max_tokens=2500,
+            model=SONNET_MODEL,
+            max_tokens=1500,
             system="You are a research indexing assistant. Given a list of research chunk summaries, produce two outputs in the exact format specified.",
             messages=[{
                 "role": "user",
@@ -131,7 +131,7 @@ async def route_to_chunks(message: str, chunk_index: str) -> list[str]:
     """
     try:
         response = await client.messages.create(
-            model=HAIKU_MODEL,
+            model=SONNET_MODEL,
             max_tokens=200,
             system=(
                 "Given the user's question and the research chunk index below, "
@@ -195,17 +195,23 @@ def _keyword_fallback(message: str, chunk_index: str) -> list[str]:
     return result
 
 
-CHAT_SYSTEM_PROMPT = """You are a senior brand strategist who has just completed an in-depth research report for this brand. You know every detail of the research intimately.
+CHAT_SYSTEM_PROMPT = """You are a senior brand strategist and consultant. Your role depends on the current state of the research:
 
-CRITICAL RULES:
+IF RESEARCH OUTPUTS EXIST:
+You have just completed an in-depth research report for this brand. 
 1. ALWAYS reference specific data, names, numbers, and findings from the research when answering. Never give generic marketing advice.
-2. When the user asks about something covered in the research, quote and reference the actual findings — don't paraphrase vaguely.
-3. If the user asks about something NOT covered in the research, explicitly say "This wasn't covered in the current research" and offer to add it.
-4. Be opinionated and strategic — don't hedge. Give clear recommendations backed by the research data.
-5. Keep responses focused and actionable. No filler paragraphs.
+2. Quote and reference actual findings — don't paraphrase vaguely.
+3. If asked about something NOT covered in the research, explicitly say "This wasn't covered in the current research" and offer to add it.
+4. Be opinionated and strategic. Keep responses actionable.
+
+IF RESEARCH OUTPUTS DO NOT EXIST YET:
+You are preparing to generate the strategy module.
+1. Review the "Knowledge Base" provided below (User Inputs and Documents).
+2. If you are missing crucial context to generate the requested strategy, act as a consultant and ASK the user for it politely.
+3. If you have enough context, confirm you are ready and offer to generate the report.
 
 DOCUMENT MODIFICATION RULES:
-When the user asks you to MODIFY, REWRITE, ADD, or REMOVE content from the research document, you MUST include a structured update tag at the END of your response (after your conversational reply):
+When the user asks you to MODIFY, REWRITE, ADD, or REMOVE content from the research document (OR if you are generating it for the first time), you MUST include a structured update tag at the END of your response (after your conversational reply):
 
 ---RESEARCH_UPDATE---
 action: replace | append | add_new | remove
@@ -216,9 +222,8 @@ content:
 (the actual research content to go into the document — write it as polished, professional research output, not conversational text)
 ---END_UPDATE---
 
-When the user just asks questions or has a discussion, respond normally WITHOUT any update tags. Only include the tag when explicitly asked to change, add, rewrite, or remove something from the report.
-
-IMPORTANT: The content inside the update tag must be written as formal research output (with ## headers, bullet points, data) — NOT as chat conversation. The conversational part goes BEFORE the tag."""
+When the user just asks questions or has a discussion, respond normally WITHOUT any update tags. Only include the tag when explicitly asked to change, add, rewrite, or remove something, OR when generating it for the first time.
+IMPORTANT: The content inside the update tag must be written as formal research output (with ## headers, bullet points, data) — NOT as chat conversation."""
 
 
 def build_chat_prompt(
@@ -228,13 +233,26 @@ def build_chat_prompt(
 ) -> list[dict]:
     """
     Assemble the full prompt from 4 tiers:
-    1. System prompt + research map + key decisions
+    1. System prompt + knowledge base + research map + key decisions
     2. Conversation summary (if exists)
     3. Last 6 raw messages (sliding window)
     4. Full text of relevant chunks + current user message
     """
     # --- System message ---
     system_parts = [CHAT_SYSTEM_PROMPT]
+    
+    # Inject Knowledge Base
+    kb_parts = []
+    if session.knowledge_base:
+        if session.knowledge_base.brand_input:
+            kb_parts.append(f"User Inputs:\n{json.dumps(session.knowledge_base.brand_input, indent=2)}")
+        if session.knowledge_base.document_extracts:
+            kb_parts.append(f"Extracted Documents Context:\n" + "\n".join(session.knowledge_base.document_extracts))
+        if session.knowledge_base.social_media_extracts:
+            kb_parts.append(f"Social Media Extracts:\n" + "\n".join(session.knowledge_base.social_media_extracts))
+            
+    if kb_parts:
+        system_parts.append("\n\n## Knowledge Base\n" + "\n\n".join(kb_parts))
 
     if session.research_map:
         system_parts.append(f"\n\n## Research Overview\n{session.research_map}")
@@ -317,7 +335,7 @@ async def maybe_compress_memory(session) -> object:
 
     try:
         response = await client.messages.create(
-            model=HAIKU_MODEL,
+            model=SONNET_MODEL,
             max_tokens=600,
             system="You are a conversation summarizer. Be concise and preserve key information.",
             messages=[{

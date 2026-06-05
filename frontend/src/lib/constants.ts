@@ -10,14 +10,14 @@ export const CATEGORIES: Record<string, string[]> = {
 };
 
 export const OUTPUT_MODULES = [
-  { id: "brand_strategy", label: "Brand Strategy", description: "Purpose, values, positioning, messaging hierarchy" },
-  { id: "competition_scan", label: "Competition Scan", description: "Competitor analysis and white space mapping" },
-  { id: "brand_audit", label: "Brand Audit", description: "Review of brand's social presence — requires social PDFs" },
-  { id: "positioning", label: "Positioning", description: "Market positioning and messaging territories" },
-  { id: "social_media", label: "Social Media", description: "Social analysis for brand + competitors — requires PDFs" },
-  { id: "seo_audit", label: "SEO Audit", description: "Keyword landscape and content gap analysis" },
-  { id: "launch_plan", label: "Launch Plan", description: "Phased launch roadmap and channel strategy" },
-  { id: "content_strategy", label: "Content Strategy", description: "Buckets, tone, and key messaging — requires review" },
+  { id: "brand_strategy", label: "Brand Strategy", description: "Purpose, values, positioning, messaging hierarchy", prerequisites: ["brand_name", "category"] },
+  { id: "competition_scan", label: "Competition Scan", description: "Competitor analysis and white space mapping", prerequisites: ["competitors"] },
+  { id: "brand_audit", label: "Brand Audit", description: "Review of brand's social presence — requires social PDFs", prerequisites: ["social_media_pdfs"] },
+  { id: "positioning", label: "Positioning", description: "Market positioning and messaging territories", prerequisites: ["target_audience"] },
+  { id: "social_media", label: "Social Media", description: "Social analysis for brand + competitors — requires PDFs", prerequisites: ["social_media_pdfs"] },
+  { id: "seo_audit", label: "SEO Audit", description: "Keyword landscape and content gap analysis", prerequisites: ["website_url"] },
+  { id: "launch_plan", label: "Launch Plan", description: "Phased launch roadmap and channel strategy", prerequisites: ["target_audience", "competitors"] },
+  { id: "content_strategy", label: "Content Strategy", description: "Buckets, tone, and key messaging — requires review", prerequisites: ["target_audience"] },
 ];
 
 export const B2B_COMPANY_SIZES = [
